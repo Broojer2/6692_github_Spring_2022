@@ -1,0 +1,177 @@
+---
+title: "Yellowstone Benthic Invertebrate Diversity - Density Data"
+author: "Jeremy Brooks"
+date: "January 24, 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Loading in packages
+#install.packages("ggpubr")
+library(asbio)
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(FSA)
+library(ggpubr)
+```
+
+
+
+```{r}
+#Loading Data and setting data frame
+Benthic_Invert_Density<- read.csv("C:/Users/broojer2/Desktop/R Analyses/YNP Benthic Invert Diversity/YNP Density_Diversity_R.CSV")
+Density_df <- as.data.frame(Benthic_Invert_Density, row.names=NULL)
+
+```
+
+
+```{r}
+#Checking data format and column names
+str(Density_df)
+colnames(Density_df)
+
+```
+
+```{r}
+#This step now unnecessary
+
+#This step filters by site, once I have other sites in this data set this will be a necessary step for running site-specific diversity analyses
+#Ant_Density <- filter(Density_df, Site == "ANT") 
+#Ant_Density
+
+```
+
+```{r}
+#ANT_Per1 <- Ant_Density %>% filter(Time_Period == "Period 1") #filter out just the first time period data
+
+
+```
+
+
+
+```{r}
+#ANT_Per1_Div <- diversity(ANT_Per1[,4], index = "shannon") #calculate Shannon-Weiner Diversity
+#ANT_Per1_Div
+
+
+#ANT_Per1_Even <- ANT_Per1_Div/log(specnumber(ANT_Per1[,4])) #Calculate Pielou's Evenness
+#ANT_Per1_Even
+#ANT_Per1_DivMetrics <- rbind(ANT_Per1_Div, ANT_Per1_Even) #+
+  #as.data.frame(ANT_Per1_DivMetrics, col.names = PeriodOne)
+
+```
+
+
+```{r}
+
+Time_Periods <- as.character(unique(Density_df[,2]))#create vector (or object maybe?) with all the time periods and use as.character to make sure it is a character not a factor.  Unique fucntion to make sure there are not repeats
+
+Div_output_df <- NULL
+
+Sites <- as.character(unique(Density_df[,1])) #create vector (or object maybe?) with all the site names and use as.character to make sure it is a character not a factor.Unique fucntion to make sure there are not repeats
+
+for(j in 1:length(Sites)) {
+  Site_df <- Density_df %>% filter(Site == Sites[j])#filter out sites
+  
+
+  for(i in 1:length(Time_Periods)) {
+    Period_i <- Site_df %>% filter(Time_Period == Time_Periods[i]) #filter out the  time periods
+    Div_i <- diversity(Period_i[,4], index = "shannon") #calculate Shannon-Weiner Diversity
+    Even_i <- Div_i/log(specnumber(Period_i[,4])) #Calculate Pielou's Evenness
+    df <- data.frame(Site = Sites[j],
+                     Time_Period = Time_Periods[i],
+                     SH_diversity = Div_i,
+                     P_evenness = Even_i)
+    Div_output_df <-rbind(Div_output_df,df)
+  }
+
+}
+
+
+  
+```
+
+
+
+```{r}
+#If I wanted to run an NMDS analyses, I would need to remove all of the taxa representing some threshold (e.g., < 5% of total)
+
+#NMDS_ANT_Per1 <- Ant_Density %>% filter(Time_Period == "Period 1") #filter out just the first time period data
+#ANT_Per1_TotDen <- summarise(NMDS_ANT_Per1, sum(Mean_Density)) #calculate the sum of all mean densities for Period 1 
+#NMDS_Threshold <-.05*ANT_Per1_TotDen #Caluclate the threshold value for removal to run NMDS, typically anything less than 5% of the total
+
+#MultVar_ANT_Per1 <- NMDS_ANT_Per1 %>% filter(Mean_Density > 99.3) #Not sure why this is resulting in 0 rows... there are data points above the threshold...
+```
+
+
+```{r}
+#Plot Theme
+
+plot_theme <- theme_classic() + 
+                 theme(axis.title.y = element_text(margin = margin(t = 0, r = 8, b = 0, l = 0))) + 
+                 theme(axis.title.x = element_text(margin = margin(t = 8, r = 0, b = , l = 0))) +
+                 theme(plot.title = element_text(hjust = 0.5)) +
+                 theme(axis.text = element_text(size = 12)) + 
+                 theme(axis.title = element_text(size = 14)) +
+                 theme(plot.title = element_text(size = 16))
+                 
+
+```
+
+
+```{r}
+Dens_Div_Plot<-ggplot(Div_output_df, mapping = aes(x = Site, y = SH_diversity, index = "shannon")) + geom_boxplot()
+
+Dens_Div_Plot<- Dens_Div_Plot + coord_cartesian(xlim = NULL, ylim = c(1,3.5)) + 
+  xlab("Sites") +
+  ylab("Shannon-Wiener Diversity") +
+  labs(title = "Benthic Invertebrate Density\nSH-Diversity ") +
+  plot_theme
+  
+Dens_Div_Plot
+
+```
+
+
+
+```{r}
+
+#ggsave("plot_Div.png", width = 5, height = 5)
+  
+Dens_Even_Plot <-ggplot(Div_output_df, mapping = aes(x = Site, y = P_evenness, index = "shannon")) + plot_theme + geom_boxplot()
+
+Dens_Even_Plot <- Dens_Even_Plot + coord_cartesian(xlim = NULL, ylim = c(.25,1)) + 
+  labs(x = "Sites", y = "Pielou's Evennes",
+  title ="Benthic Invertebrate Density\nPielou's Evenness ")
+
+Dens_Even_Plot
+
+
+
+#ggsave("plot_Even.png", width = 5, height = 5)
+```
+
+```{r}
+
+panel_plot <- ggarrange(Dens_Div_Plot, Dens_Even_Plot,
+          ncol = 2,
+          nrow = 1,
+          widths = 2,
+          heights = 1,
+          common.legend = FALSE,
+          legend = 'bottom')
+
+panel_plot
+
+
+png(file="my_panel_plot.png", width=6000, height=3000, units="px", res=600)
+panel_plot
+dev.off()
+
+```
+
